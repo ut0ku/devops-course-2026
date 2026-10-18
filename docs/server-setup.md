@@ -1,7 +1,6 @@
 # Конфигурация виртуальной машины devops-vm
 
 ## 1. Параметры машины
-
 - **Наименование VM:** devops-vm
 - **ОЗУ:** 2048 МБ
 - **Ядер процессора:** 2
@@ -10,7 +9,6 @@
 - **Средство виртуализации:** VirtualBox 7.x
 
 ## 2. Сетевые интерфейсы
-
 | Интерфейс | Тип адаптера | IP-адрес | Назначение |
 |---|---|---|---|
 | enp0s3 | NAT | 10.0.2.15/24 | Доступ в интернет (репозитории пакетов) |
@@ -21,7 +19,6 @@
 **Host-only** — изолированный сегмент `192.168.56.0/24`, гостевая система доступна с хостовой напрямую.
 
 ## 3. Правило проброса портов
-
 | Адаптер | Имя правила | Протокол | IP хоста | Порт хоста | IP гостя | Порт гостя |
 |---|---|---|---|---|---|---|
 | Adapter 1 (NAT) | SSH | TCP | 127.0.0.1 | 2222 | (пусто) | 2222 |
@@ -29,7 +26,6 @@
 **Порт гостя** — 2222 (не 22!), потому что SSH перенастроен на нестандартный порт в шаге 2.3.
 
 ## 4. Учётные записи
-
 | Имя | Группы | Способ аутентификации |
 |---|---|---|
 | student | student, sudo, users | Пароль (для консоли и sudo) |
@@ -39,14 +35,12 @@
 **Пользователь `root`** — вход по SSH **запрещён** (`PermitRootLogin no`).
 
 ## 5. Служба SSH
-
 - **Порт:** 2222 (нестандартный)
 - **Файл конфигурации:** `/etc/ssh/sshd_config.d/99-hardening.conf`
 - **Бэкап основного конфига:** `/etc/ssh/sshd_config.backup`
 - **Метод активации:** `ssh.service` (не `ssh.socket`)
 
 **Изменённые директивы:**
-
 | Директива | Значение | Назначение |
 |---|---|---|
 | Port | 2222 | Нестандартный порт |
@@ -64,7 +58,6 @@
 **Важно:** в `/etc/ssh/sshd_config.d/50-cloud-init.conf` строка `PasswordAuthentication yes` **закомментирована** (иначе она переопределила бы значение из `99-hardening.conf`).
 
 ## 6. Правила межсетевого экрана
-
 - **Утилита:** UFW (Uncomplicated Firewall)
 - **Статус:** active
 - **Политики по умолчанию:** `deny incoming`, `allow outgoing`, `disabled routed`
@@ -79,7 +72,6 @@
 **`LIMIT`** — блокировка источника, инициировавшего 6+ соединений за 30 секунд (защита от брутфорса).
 
 ## 7. Снимки состояния
-
 | Наименование | Момент создания | Что зафиксировано |
 |---|---|---|
 | 01-clean-install | После установки Ubuntu, до всех изменений | Чистая система |
@@ -103,51 +95,55 @@
 **8.3. Hardening SSH**
 5. Бэкап конфига:
    `sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup`
-6. Создание дополняющего файла:
+6. Создание дополняющего файла (вставить внутрь директивы):
    `sudo nano /etc/ssh/sshd_config.d/99-hardening.conf`
-   port 2222
-   PermitRootLogin no
-   PasswordAuthentication no
-   PubkeyAuthentication yes
-   PermitEmptyPassword no
-   MaxAuthTries 3
-   LoginGraceTime 30
-   AllowUsers devops
-   X11Forwarding no
-   ClientAliveInterval 300
-   ClientAliveCountMax 2
+   *Содержимое файла:*
+   `Port 2222`
+   `PermitRootLogin no`
+   `PasswordAuthentication no`
+   `PubkeyAuthentication yes`
+   `PermitEmptyPasswords no`
+   `MaxAuthTries 3`
+   `LoginGraceTime 30`
+   `AllowUsers devops`
+   `X11Forwarding no`
+   `ClientAliveInterval 300`
+   `ClientAliveCountMax 2`
 7. Комментирование конфликтной строки:
    `sudo sed -i 's/^PasswordAuthentication yes/#PasswordAuthentication yes/' /etc/ssh/sshd_config.d/50-cloud-init.conf`
-8-10. Переключение на service и перезапуск:
+8. Отключение socket-активации:
    `sudo systemctl disable --now ssh.socket`
+9. Включение обычной службы:
    `sudo systemctl enable --now ssh.service`
-   `sudo systemctl restart ssh`
+10. Перезапуск SSH:
+    `sudo systemctl restart ssh`
 
 **8.4. Проброс портов (в VirtualBox)**
 11. Выключить VM. В настройках сети (Adapter 1 -> Advanced -> Port Forwarding) поменять Guest Port с `22` на `2222`.
 
 **8.5. Межсетевой экран**
-12-13. Задание политик и создание правил:
-   `sudo ufw default deny incoming`
-   `sudo ufw default allow outgoing`
-   `sudo ufw allow 2222/tcp comment 'SSH'`
-   `sudo ufw allow 80/tcp comment 'HTTP'`
-   `sudo ufw allow 443/tcp comment 'HTTPS'`
-14. Активация:
-   `sudo ufw enable`
-15. Замена на limit:
-   `sudo ufw delete allow 2222/tcp`
-   `sudo ufw limit 2222/tcp comment 'SSH rate-limited'`
-16. Включение логирования:
-   `sudo ufw logging medium`
+12. Задание политик и создание правил:
+    `sudo ufw default deny incoming`
+    `sudo ufw default allow outgoing`
+    `sudo ufw allow 2222/tcp comment 'SSH'`
+    `sudo ufw allow 80/tcp comment 'HTTP'`
+    `sudo ufw allow 443/tcp comment 'HTTPS'`
+13. Активация:
+    `sudo ufw enable`
+14. Замена на limit (удаление и создание нового правила):
+    `sudo ufw delete allow 2222/tcp`
+    `sudo ufw limit 2222/tcp comment 'SSH rate-limited'`
+15. Включение логирования:
+    `sudo ufw logging medium`
 
 **8.6. Доменное имя**
-17. Установка hostname:
-   `sudo hostnamectl set-hostname devops-vm`
-18. Настройка FQDN в hosts:
-   `sudo sed -i 's/^127.0.1.1.*/127.0.1.1 devops-vm.devops.local devops-vm/' /etc/hosts`
+16. Установка hostname:
+    `sudo hostnamectl set-hostname devops-vm`
+17. Настройка FQDN в hosts:
+    `sudo sed -i 's/^127.0.1.1.*/127.0.1.1 devops-vm.devops.local devops-vm/' /etc/hosts`
 
 **8.7. Скрипт аудита**
-21. Копирование скрипта (выполняется на Windows в папке репозитория):
-   `scp scripts/audit.sh devops:~/audit.sh`
-   Запуск `bash ~/audit.sh`
+18. Копирование скрипта (выполняется на Windows в папке репозитория):
+    `scp scripts/audit.sh devops:~/audit.sh`
+    Запуск на сервере:
+    `bash ~/audit.sh`
