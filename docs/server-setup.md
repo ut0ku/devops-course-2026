@@ -85,3 +85,69 @@
 | 01-clean-install | После установки Ubuntu, до всех изменений | Чистая система |
 | 02-keys-configured | После задания 1 | Пользователь devops, ключи, ~/.ssh/config |
 | 03-ssh-hardened | После задания 2 | Hardening SSH (порт 2222, запрет root/паролей) |
+
+## 8. Инструкция по восстановлению (Команды)
+
+**8.1. Восстановление пользователей и SSH**
+1. Запуск SSH:
+   `sudo systemctl enable --now ssh.service`
+2. Создание пользователя `devops`:
+   `sudo adduser devops`
+3. Выдача прав sudo:
+   `sudo usermod -aG sudo devops`
+
+**8.2. Настройка ключей**
+4. Копирование открытого ключа на сервер:
+   `ssh-copy-id -i ~/.ssh/devops_vm.pub -p 2222 devops@127.0.0.1`
+
+**8.3. Hardening SSH**
+5. Бэкап конфига:
+   `sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup`
+6. Создание дополняющего файла:
+   `sudo nano /etc/ssh/sshd_config.d/99-hardening.conf`
+   port 2222
+   PermitRootLogin no
+   PasswordAuthentication no
+   PubkeyAuthentication yes
+   PermitEmptyPassword no
+   MaxAuthTries 3
+   LoginGraceTime 30
+   AllowUsers devops
+   X11Forwarding no
+   ClientAliveInterval 300
+   ClientAliveCountMax 2
+7. Комментирование конфликтной строки:
+   `sudo sed -i 's/^PasswordAuthentication yes/#PasswordAuthentication yes/' /etc/ssh/sshd_config.d/50-cloud-init.conf`
+8-10. Переключение на service и перезапуск:
+   `sudo systemctl disable --now ssh.socket`
+   `sudo systemctl enable --now ssh.service`
+   `sudo systemctl restart ssh`
+
+**8.4. Проброс портов (в VirtualBox)**
+11. Выключить VM. В настройках сети (Adapter 1 -> Advanced -> Port Forwarding) поменять Guest Port с `22` на `2222`.
+
+**8.5. Межсетевой экран**
+12-13. Задание политик и создание правил:
+   `sudo ufw default deny incoming`
+   `sudo ufw default allow outgoing`
+   `sudo ufw allow 2222/tcp comment 'SSH'`
+   `sudo ufw allow 80/tcp comment 'HTTP'`
+   `sudo ufw allow 443/tcp comment 'HTTPS'`
+14. Активация:
+   `sudo ufw enable`
+15. Замена на limit:
+   `sudo ufw delete allow 2222/tcp`
+   `sudo ufw limit 2222/tcp comment 'SSH rate-limited'`
+16. Включение логирования:
+   `sudo ufw logging medium`
+
+**8.6. Доменное имя**
+17. Установка hostname:
+   `sudo hostnamectl set-hostname devops-vm`
+18. Настройка FQDN в hosts:
+   `sudo sed -i 's/^127.0.1.1.*/127.0.1.1 devops-vm.devops.local devops-vm/' /etc/hosts`
+
+**8.7. Скрипт аудита**
+21. Копирование скрипта (выполняется на Windows в папке репозитория):
+   `scp scripts/audit.sh devops:~/audit.sh`
+   Запуск `bash ~/audit.sh`
