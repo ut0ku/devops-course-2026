@@ -85,7 +85,7 @@
 | `02-keys-configured` | После задания 1 | Пользователь devops, ключи, `~/.ssh/config` |
 | `03-ssh-hardened` | После задания 2 | Hardening SSH (порт 2222, запрет root/паролей) |
 
-## 8. Инструкция по восстановлению
+## Инструкция по восстановлению
 
 ### 8.1. Восстановление пользователей и SSH
 
@@ -235,3 +235,16 @@ scp scripts/audit.sh devops:~/audit.sh
 ```bash
 bash ~/audit.sh
 ```
+
+## 8. Веб-сервер
+
+- **Устанавливаемый пакет:** `nginx`
+- **Путь к конфигурации ресурса:** `/etc/nginx/sites-available/devops-site`
+- **Каталог ресурса:** `/var/www/devops-site`
+- **Владелец каталога и права:** `devops:devops`, права `755` (drwxr-xr-x)
+- **Права на файлы:** `644` (-rw-r--r--)
+- **Путь к сертификату:** `/etc/ssl/certs/devops.crt` (права `644`, владелец `root`)
+- **Путь к ключу:** `/etc/ssl/private/devops.key` (права `600`, владелец `root`)
+- **Команда формирования сертификата:** 
+  `sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/ssl/private/devops.key -out /etc/ssl/certs/devops.crt -subj "/CN=devops.local" -addext "subjectAltName=DNS:devops.local"`
+- **Срок действия сертификата:** 365 дней.
