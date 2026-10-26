@@ -248,3 +248,14 @@ bash ~/audit.sh
 - **Команда формирования сертификата:** 
   `sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/ssl/private/devops.key -out /etc/ssl/certs/devops.crt -subj "/CN=devops.local" -addext "subjectAltName=DNS:devops.local"`
 - **Срок действия сертификата:** 365 дней.
+
+## 9. Контейнеризация
+
+- **Способ установки Docker Engine:** Официальный репозиторий Docker (согласно инструкции, пакет `docker.io` из репозитория Ubuntu не использовался).
+- **Версия Docker Engine:** Docker Engine - Community, версия 29.9.1.
+- **Участники группы `docker`:** Пользователь `devops` (добавлен для запуска контейнеров без `sudo`).
+- **Расположение проекта на сервере:** `/home/devops/app`.
+- **Расположение файла `.env` и его права:** `/home/devops/app/.env`. Владелец `devops`, права `600` (чтение и запись только для владельца).
+- **Публикуемые порты и адреса:** Приложение доступно только локально на адресе `127.0.0.1:5000`. Порт базы данных (5432) наружу не публикуется.
+- **Именованные тома:** `app_db_data` (создан для хранения данных PostgreSQL). Команда `docker compose down` сохраняет том, `docker compose down -v` удаляет его.
+- **Конфигурация обратного прокси-сервера:** Nginx перенаправляет запросы с `https://devops.local/app/` на `http://127.0.0.1:5000/` (с использованием `proxy_pass` и заголовков `X-Forwarded-*`).
