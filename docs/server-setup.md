@@ -259,3 +259,39 @@ bash ~/audit.sh
 - **Публикуемые порты и адреса:** Приложение доступно только локально на адресе `127.0.0.1:5000`. Порт базы данных (5432) наружу не публикуется.
 - **Именованные тома:** `app_db_data` (создан для хранения данных PostgreSQL). Команда `docker compose down` сохраняет том, `docker compose down -v` удаляет его.
 - **Конфигурация обратного прокси-сервера:** Nginx перенаправляет запросы с `https://devops.local/app/` на `http://127.0.0.1:5000/` (с использованием `proxy_pass` и заголовков `X-Forwarded-*`).
+
+## 10. Ansible
+
+**Расположение проекта:** каталог `ansible/` в корне репозитория `devops-course-2026`.
+
+**Управляющий и управляемый узлы:**
+- Управляющий узел: хостовая ОС с WSL (Linux), где установлен Ansible.
+- Управляемый узел: виртуальная машина `devops-vm` (Ubuntu Server 24.04, amd64).
+
+**Inventory:**
+- `ansible/inventory/bootstrap.ini` — для первичного запуска (пользователь `student` по паролю).
+- `ansible/inventory/prod.ini` — для последующих запусков (пользователь `devops` по SSH-ключу `~/.ssh/devops_vm`).
+
+**Учётные записи:**
+- **bootstrap:** пользователь `student`, аутентификация по паролю с `sudo`.
+- **prod:** пользователь `devops`, аутентификация по SSH-ключу, `sudo` без пароля (`NOPASSWD`).
+
+**Роли и их ответственность:**
+- `base` — проверка ОС, установка базовых пакетов и Docker Engine из официального репозитория.
+- `ssh` — создание пользователя `devops`, установка ключа, настройка `sudo`, hardening SSH и UFW.
+- `nginx` — установка Nginx, настройка reverse proxy, активация сайта, проверка конфигурации.
+- `app` — загрузка образа из GHCR, запуск контейнера, проверка `/health`.
+
+**Переменные приложения (group_vars/all.yml):**
+- **Адрес образа GHCR:** `ghcr.io/ut0ku/devops-ci-app`
+- **Полный SHA:** `<ваш_рабочий_SHA_из_ПР_10>` *(подставьте свой)*
+- **Порт контейнера:** публикуется на `127.0.0.1:5000` (внутренний порт `5000`).
+- **Health endpoint:** `http://127.0.0.1:5000/health` (ожидаемый ответ `{"status":"ok"}`).
+
+**Команды запуска:**
+- Первичный запуск (bootstrap):
+  `ansible-playbook -i inventory/bootstrap.ini site.yml --ask-pass --ask-become-pass`
+- Повторный запуск (prod):
+  `ansible-playbook -i inventory/prod.ini site.yml`
+- Read-only аудит:
+  `ansible-playbook -i inventory/prod.ini verify.yml`
